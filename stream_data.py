@@ -19,90 +19,84 @@ def get_port():
         com_port = devices[0]
         found = True
     if found:
-        print("Device found: " + com_port)
+        print(f"Device found: {com_port}")
         return com_port
     else:
         print("No device was found.")
         return None
 
-def get_csv_data(data, opened, file_name, count):
+def get_csv_data(data, opened, file_name):
+    ugly_time = time.time()
+    time_stamp = time.ctime(ugly_time)
+    row = { 
+				'Time':time_stamp,'AccelCorrectedX' : data[0], 'AccelCorrectedY' : data[1], 'AccelCorrectedZ' : data[2],  
+				'GyroCorrectedX' : data[3], 'GyroCorrectedY' : data[4], 'GyroCorrectedZ' : data[5],
+				'Pitch' : data[6], 'Yaw' : data[7], 'Roll' : data[8]}
     if not opened:
         with open(file_name, 'w') as stream_data:
-            field_names = ['time','AccelCorrectedX','AccelCorrectedY','AccelCorrectedZ','GyroCorrectedX','GyroCorrectedY','GyroCorrectedZ', 'Pitch', 'Yaw', 'Roll']
+            field_names = ['Time','AccelCorrectedX','AccelCorrectedY','AccelCorrectedZ','GyroCorrectedX','GyroCorrectedY','GyroCorrectedZ', 'Pitch', 'Yaw', 'Roll']
             # Set field names in the CSV file
             writer = csv.DictWriter(stream_data, fieldnames = field_names)
             # Create header
             writer.writeheader()
             # Write data to file
-            writer.writerow({'time' : count, 
-				'AccelCorrectedX' : data[0], 'AccelCorrectedY' : data[1], 'AccelCorrectedZ' : data[2],  
-				'GyroCorrectedX' : data[3], 'GyroCorrectedY' : data[4], 'GyroCorrectedZ' : data[5],
-				'Pitch' : data[6], 'Yaw' : data[7], 'Roll' : data[8]})
+            writer.writerow(row)
     else:
         with open(file_name, 'a') as stream_data:
+            time_tuple = (time_stamp,)
+            data_with_time = time_tuple + data
             writer = csv.writer(stream_data)
-            tuple_count = (data,)
-            data_withcount = tuple_count + data
-            writer.writerow(data_withcount)
+            writer.writerow(data_with_time)
 
 
 def stream():
     streaming = True
     opened = False
-    counter = 0;
 
     # These variables determine the filename scheme
 	# Counter variable keeps track of number of csv files stored per session
     file_name = "imu_data.csv"
-    count = 0
-    data_count = 0
 
     port = get_port()
     # Connect sensor with the port
     device = ts_api.TSLXSensor(com_port = port)
+    print(device)
 
-    while streaming:
+    if device is not None:
 
-        if device is not None:
-            print(device)
+        # Disable magnometer (compass)
+        device.setCompassEnabled(enabled = False)
+        # Set calibration mode to Scale/Bias mode
+        device.setCalibrationMode(mode = 1)
+        # Begin auto calibration of gyroscope
+        device.beginGyroscopeAutoCalibration()
+        # Set filter mode to Kalman
+        device.setFilterMode(mode = 1)
+        # Fix rate 
+        device.setStreamingTiming(interval = 0, duration = 0xFFFFFFFF, delay = 0)
+        # Start streaming
+        device.startStreaming()
+        device.startRecordingData()
 
-            # Disable magnometer (compass)
-            device.setCompassEnabled(enabled = False)
-            # Set calibration mode to Scale/Bias mode
-            device.setCalibrationMode(mode = 1)
-            # Begin auto calibration of gyroscope
-            device.beginGyroscopeAutoCalibration()
-            # Set filter mode to Kalman
-            device.setFilterMode(mode = 1)
-            # Fix rate 
-            device.setStreamingTiming(interval = 0, duration = 0xFFFFFFFF, delay = 0)
-            # Start streaming
-            device.startStreaming()
-            device.startRecordingData()
+        while streaming:
 
             # Set slots for tared quaternion and raw batch data - accel in units of g
             # gyro is in rad/sec
-            #try getFiltOrientEuler and compare to quaternion calculations
             device.setStreamingSlots( 
                 slot0='getCorrectedAccelerometerVector', 
                 slot1='getCorrectedGyroRate',
                 slot2 = 'getTaredOrientationAsEulerAngles')
             print("==================================================")
-            print("Getting the streaming data.")
+            data = device.getLatestStreamData(1)[1]
 
-            data = device.getLatestStreamData(20000)[1]
-
-            if(count < 10):
-                countstr = '0' + str(count)
-            get_csv_data(data, opened, file_name, data_count)
-            sample_count = data_count + 1
+            get_csv_data(data, opened, file_name)
             opened = True
             print(data)
-            print("=======================================\n")
+            print("==================================================\n")
     
-    device.stopStreaming()
-    print("End of session")
-    device.close()
+        device.stopStreaming()
+        print("End of session")
+        device.close()
     return None
     
 # def getGyroDifference(data1, data2):
