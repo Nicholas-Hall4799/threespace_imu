@@ -45,6 +45,7 @@ def get_csv_data(data, opened, file_name, count):
             data_withcount = tuple_count + data
             writer.writerow(data_withcount)
 
+
 def stream():
     streaming = True
     opened = False
@@ -60,43 +61,44 @@ def stream():
     # Connect sensor with the port
     device = ts_api.TSLXSensor(com_port = port)
 
-    if device is not None:
-        print(device)
+    while streaming:
 
-        # Disable magnometer (compass)
-        device.setCompassEnabled(enabled = False)
-        # Set calibration mode to Scale/Bias mode
-        device.setCalibrationMode(mode = 1)
-        # Begin auto calibration of gyroscope
-        device.beginGyroscopeAutoCalibration()
-        # Set filter mode to Kalman
-        device.setFilterMode(mode = 1)
-		# Fix rate 
-        device.setStreamingTiming(interval = 0, duration = 0xFFFFFFFF, delay = 0)
-        # Start streaming
-        device.startStreaming()
-        device.startRecordingData()
+        if device is not None:
+            print(device)
 
-		# Set slots for tared quaternion and raw batch data - accel in units of g
-		# gyro is in rad/sec
-		#try getFiltOrientEuler and compare to quaternion calculations
-        device.setStreamingSlots( 
-			slot0='getCorrectedAccelerometerVector', 
-			slot1='getCorrectedGyroRate',
-			slot2 = 'getTaredOrientationAsEulerAngles')
-        print("==================================================")
-        print("Getting the streaming data.")
+            # Disable magnometer (compass)
+            device.setCompassEnabled(enabled = False)
+            # Set calibration mode to Scale/Bias mode
+            device.setCalibrationMode(mode = 1)
+            # Begin auto calibration of gyroscope
+            device.beginGyroscopeAutoCalibration()
+            # Set filter mode to Kalman
+            device.setFilterMode(mode = 1)
+            # Fix rate 
+            device.setStreamingTiming(interval = 0, duration = 0xFFFFFFFF, delay = 0)
+            # Start streaming
+            device.startStreaming()
+            device.startRecordingData()
 
-        data = device.getLatestStreamData(20000)[1]
-        print(data)
+            # Set slots for tared quaternion and raw batch data - accel in units of g
+            # gyro is in rad/sec
+            #try getFiltOrientEuler and compare to quaternion calculations
+            device.setStreamingSlots( 
+                slot0='getCorrectedAccelerometerVector', 
+                slot1='getCorrectedGyroRate',
+                slot2 = 'getTaredOrientationAsEulerAngles')
+            print("==================================================")
+            print("Getting the streaming data.")
 
-        if(count < 10):
-            countstr = '0' + str(count)
-        get_csv_data(data, opened, file_name, data_count)
-        sample_count = data_count + 1
-        opened = True
-        print(data)
-        print("=======================================\n")
+            data = device.getLatestStreamData(20000)[1]
+
+            if(count < 10):
+                countstr = '0' + str(count)
+            get_csv_data(data, opened, file_name, data_count)
+            sample_count = data_count + 1
+            opened = True
+            print(data)
+            print("=======================================\n")
     
     device.stopStreaming()
     print("End of session")
@@ -167,4 +169,7 @@ def stream():
 # device.close()
 
 if __name__ == '__main__':
-    stream()
+    try:
+        stream()
+    except KeyboardInterrupt:
+        sys.exit()
