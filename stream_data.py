@@ -83,8 +83,8 @@ def stream():
             # Set slots for tared quaternion and raw batch data - accel in units of g
             # gyro is in rad/sec
             device.setStreamingSlots( 
-                slot0='getCorrectedAccelerometerVector', 
-                slot1='getCorrectedGyroRate',
+                slot0 = 'getCorrectedAccelerometerVector', 
+                slot1 = 'getCorrectedGyroRate',
                 slot2 = 'getTaredOrientationAsEulerAngles')
             print("==================================================")
             data = device.getLatestStreamData(1)[1]
@@ -98,6 +98,16 @@ def stream():
         print("End of session")
         device.close()
     return None
+
+def calculate_position():
+
+    port = get_port()
+    # Connect sensor with the port
+    device = ts_api.TSLXSensor(com_port = port)
+
+    euler_angles = device.getTaredOrientationAsEulerAngles
+    print("Euler angles are as follows: " + euler_angles)
+    pass
     
 # def getGyroDifference(data1, data2):
 #     differences = []
