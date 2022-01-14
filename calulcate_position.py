@@ -8,6 +8,7 @@ import numpy
 import scipy.integrate as integrate
 import csv
 import time
+import timeit
 
 def initialize():
     def find_port():
@@ -46,20 +47,54 @@ def calibrate(device):
         device.beginGyroscopeAutoCalibration()
         # Set filter mode to Kalman
         device.setFilterMode(mode = 1)
-        # Set acceleration range to +-8g
-        device.setAccelerometerRange(2)
+        # Set acceleration range to +-2g
+        device.setAccelerometerRange(0)
 
         return device
 
 def calculate_position(device):
-    init_velocity = 0
-    init_accel = 0
+    velocity = [[0,0,0], 0]
+    accel = [[0,0,0], 0]
+    position = [[0,0,0], 0]
 
     def get_accel():
-        accel = device.getCorrectedAccelerometerVector()
-        time_stamp = time.ctime(time.time())
+        accel_tuple = device.getCorrectedAccelerometerVector()
+        accel = list(accel_tuple)
+        time_stamp = timeit.default_timer()
         data = [accel, time_stamp]
         return data
+
+    # Caluclates velocity given previous acceleration and time
+    def get_velocity(velocity, prev_accel):
+        curr_accel = get_accel()
+        curr_time = timeit.default_timer()
+        prev_time = prev_accel[1]
+        # print("Previous time = ", prev_time)
+        # print("Current time = ", curr_time)
+        # Make velocity list
+        velocity[0][0] += (curr_accel[0][0] + prev_accel[0][0])/2*(curr_time - prev_time)
+        velocity[0][1] += (curr_accel[0][1] + prev_accel[0][1])/2*(curr_time - prev_time)
+        velocity[0][2] += (curr_accel[0][2] + prev_accel[0][2])/2*(curr_time - prev_time)
+        velocity[1] = curr_time - prev_time
+        # print("Difference = ", curr_time - prev_time)
+        prev_accel = curr_accel
+        return velocity
+
+    def get_position(prev_velocity, prev_accel):
+        curr_velocity = get_velocity(prev_velocity, prev_accel)
+        # print(f"Velocity vector at time {curr_velocity[1]} : {curr_velocity[0]}")
+        curr_time = timeit.default_timer()
+        prev_time = prev_accel[1]
+        # print("Previous time = ", prev_time)
+        # print("Current time = ", curr_time)
+        # Make position list
+        position[0][0] += (curr_velocity[0][0] + prev_velocity[0][0])/2*(curr_time - prev_time)
+        position[0][1] += (curr_velocity[0][1] + prev_velocity[0][1])/2*(curr_time - prev_time)
+        position[0][2] += (curr_velocity[0][2] + prev_velocity[0][2])/2*(curr_time - prev_time)
+        position[1] = curr_time - prev_time
+        # print("Difference = ", curr_time - prev_time)
+        prev_velocity = curr_velocity
+        return position
 
     euler_angle = device.getTaredOrientationAsEulerAngles()
     # Rotation around the side-to-side axis in radians. (Theta)
@@ -91,7 +126,15 @@ def calculate_position(device):
     print(f"Yaw: {yaw}")
     print(f"Euler angles are as follows: {euler_angle}")
     print(f"Rotation Matrix: \n {rotation_matrix}")
-    print(get_accel())
+    keep_going = True
+    while keep_going:
+        prev_accel = get_accel()
+        # print(f"Acceleration vector at time {prev_accel[1]} : {prev_accel[0]}")
+        # curr_velocity = get_velocity(velocity, prev_accel)
+        # print(f"Vecolity vector at time {curr_velocity[1]} : {curr_velocity[0]}")
+        curr_position = get_position(velocity, prev_accel)
+        print(f"Position vector at time {curr_position[1]} : {curr_position[0]}")
+        time.sleep(1)
 
 
 if __name__ == '__main__':
