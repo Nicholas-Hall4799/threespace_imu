@@ -801,7 +801,7 @@ class _TSSensor(_TSBase):
     command_dict.update({
         'getTaredOrientationAsQuaternion': (0x0, 16, '>4f', 0, None, 1),
         'getTaredOrientationAsEulerAngles': (0x1, 12, '>fff', 0, None, 1),
-        'getdOrTareientationAsRotationMatrix': (0x2, 36, '>9f', 0, None, 1),
+        'getTaredOrientationAsRotationMatrix': (0x2, 36, '>9f', 0, None, 1),
         'getTaredOrientationAsAxisAngle': (0x3, 16, '>4f', 0, None, 1),
         'getTaredOrientationAsTwoVector': (0x4, 24, '>6f', 0, None, 1),
         'getDifferenceQuaternion': (0x5, 16, '>4f', 0, None, 1),

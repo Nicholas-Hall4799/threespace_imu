@@ -65,12 +65,12 @@ def calculate_position(device):
     # Rotation Matrix Calculations
     m_11 = math.cos(roll) * math.cos(pitch)
     m_12 = math.sin(yaw) * math.cos(pitch)
-    m_13 = -1 + math.sin(pitch)
+    m_13 = -1 * math.sin(pitch)
     m_21 = (math.cos(yaw) * math.sin(pitch) * math.sin(roll)) - (math.sin(roll) * math.cos(roll))
     m_22 = (math.sin(yaw) * math.sin(pitch) * math.sin(roll)) + (math.cos(yaw) * math.cos(roll))
-    m_23 = math.cos(pitch) * math.sin(yaw)
-    m_31 = (math.cos(yaw) * math.sin(pitch) * math.cos(roll)) + (math.sin(yaw) + math.sin(roll))
-    m_32 = (math.sin(yaw) + math.sin(pitch) + math.cos(roll)) - (math.cos(yaw) * math.sin(roll))
+    m_23 = math.cos(pitch) * math.sin(roll)
+    m_31 = (math.cos(yaw) * math.sin(pitch) * math.cos(roll)) + (math.sin(yaw) * math.sin(roll))
+    m_32 = (math.sin(yaw) * math.sin(pitch) * math.cos(roll)) - (math.cos(yaw) * math.sin(roll))
     m_33 = math.cos(pitch) * math.cos(roll)
 
     rotation_matrix = numpy.array([[m_33, m_32, m_31], [m_23, m_22, m_21], [m_13, m_12, m_11]])
