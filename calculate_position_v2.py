@@ -8,6 +8,7 @@ import numpy.matlib
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
+import copy
 
 # Function to connect to 3-Space Sensor
 def initialize():
@@ -63,6 +64,7 @@ def plot(x, y):
     plt.title("Acceleration in X Direction")
     plt.xlabel("x axis")
     plt.ylabel("y axis")
+    plt.ylim(-16, 16)
     plt.show()
     return None
 
@@ -82,49 +84,67 @@ if __name__ == '__main__':
 
         acceleration = []
         velocity = [[0,0,0], 0]
-        position = []
+        position = [[0,0,0], 0]
 
         velocity_list.append(velocity)
+        position_list.append(position)
 
         index = 0
 
         while index < 10000:
 
             # Get current acceleration and append to list
-            accel = list(device.getCorrectedLinearAccelerationInGlobalSpace())       # Accelerometer Values
-            # Convert from G's to Meters/Second²
-            conversion(device, accel)
+            accel = list(device.getCorrectedAccelerometerVector())         # Accelerometer Values 
+            accel[1] -= 1                                                  # Subtract 1g from Y-value
+            accel = conversion(device, accel)                              # Convert from G's to Meters/Second²
 
-            accel_time = time.time()                                            # Time stamp
-            curr_acceleration = [accel, accel_time]                      # List to store accelerometer values + time stamp
-            acceleration_list.append(curr_acceleration)                         # Add to total acceleration list
+            time_stamp = time.time()                                       # Time stamp
+            curr_acceleration = [accel, time_stamp]                        # List to store accelerometer values + time stamp
+            acceleration_list.append(curr_acceleration)                    # Add to total acceleration list
             # print(f"Acceleration values are: {acceleration_list}")
-            # time.sleep(0.2)
+            time.sleep(0.025)
+            # Make a copy of velocity so it doesn't get updated
+            curr_velocity = copy.deepcopy(velocity)
             # Calculate velocity using acceleration
             for i in range(3):
-                if len(acceleration_list) > 1 and index > 0:
-                    if acceleration_list[index][0][i] < abs(0.05):
+                if len(acceleration_list) > 1 and index > 0:                # Wait until we've done one iteration
+                    if abs(acceleration_list[index][0][i]) < 0.5:
                         acceleration_list[index][0][i] = 0.0
-                    velocity[0][i] = velocity_list[index-1][0][i] + (acceleration_list[index][0][i] + acceleration_list[index-1][0][i])/2*(acceleration_list[index][1] - acceleration_list[index-1][1])
-                    velocity_list.append(velocity)
+                    # Previous Velocity + (Current Acceleration + Previous Acceleration / 2 ) * (Current Time - Previous Time) 
+                    curr_velocity[0][i] = velocity_list[index-1][0][i] + ((acceleration_list[index][0][i] + acceleration_list[index-1][0][i])/2)*(acceleration_list[index][1] - acceleration_list[index-1][1])
+                    curr_velocity[1] = copy.deepcopy(acceleration_list[index][1])
+            
+            velocity_list.append(curr_velocity)
 
-            index += 1
 
             # Correct with Rotation Matrix
-            rotation_array = numpy.array(get_rotation_matrix(device))          # Get rotation matrix as quanterions
-            rotation_matrix = rotation_array.reshape((3,3))
-            velocity_matrix = numpy.array(velocity[0])
-            corrected_velocity = numpy.matmul(rotation_matrix, velocity_matrix)
-            print(f"Corrected velocity is: {corrected_velocity}")
+            # rotation_array = numpy.array(get_rotation_matrix(device))          # Get rotation matrix as quanterions
+            # rotation_matrix = rotation_array.reshape((3,3))
+            # velocity_matrix = numpy.array(velocity[0])
+            # corrected_velocity = numpy.matmul(rotation_matrix, velocity_matrix)
+            # print(f"Corrected velocity is: {corrected_velocity}")
 
             # TODO: Correct with Altimeter Values
-            # TODO: Get Position
 
-        # TODO: Creat and display plot of acceleration values
+            # Make a copy of position so it doesn't get updated
+            curr_position = copy.deepcopy(position)
+            # Calculate position using velocity
+            for i in range(3):
+                if len(velocity_list) > 1 and index > 0:                    # Wait until we've done one iteration
+                    if abs(velocity_list[index][0][i]) < 0.5:               # Threshold check to remove minute errors
+                        velocity_list[index][0][i] = 0.0
+                    # Previous Position + (Current Velocity + Previous Velocity / 2 ) * (Current Time - Previous Time) 
+                    curr_position[0][i] = position_list[index-1][0][i] + ((velocity_list[index][0][i] + velocity_list[index-1][0][i])/2)*(velocity_list[index][1] - velocity_list[index-1][1])
+                    curr_position[1] = copy.deepcopy(velocity_list[index][1])
+
+            position_list.append(curr_position)
+
+            print(f"Position is: {curr_position}")
+            index += 1
+
+        # TODO: Create and display plot of acceleration values
         accel_x_values = []
         length = []
-        print(acceleration_list)
-        print(len(acceleration_list))
         for i in range(len(acceleration_list)):
             accel_x_values.append(acceleration_list[i][0][0])
             length.append(i)
