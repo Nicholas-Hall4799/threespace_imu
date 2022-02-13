@@ -7,6 +7,7 @@ import numpy
 import numpy.matlib
 import matplotlib.pyplot as plt
 from datetime import datetime
+import csv
 import time
 import copy
 
@@ -55,7 +56,7 @@ def get_rotation_matrix(device):
 def conversion(device, accel_list):
     if device is not None:
         accel_array = numpy.array(accel_list)
-        converted_array = accel_array*9.8066
+        converted_array = accel_array*32.174
         converted_list = converted_array.tolist()
         return converted_list
 
@@ -68,6 +69,37 @@ def plot(x, y):
     plt.show()
     return None
 
+def write_csv_data(data, opened, file_name, data_type):
+    row = {data_type + 'X' : data[0][0], data_type + 'Y' : data[0][1], data_type + 'Z' : data[0][2], 'Time' : data[1]}
+    if not opened:
+        with open(file_name, 'w') as stream_data:
+            field_names = [data_type + 'X',data_type + 'Y',data_type + 'Z', 'Time']
+            writer = csv.DictWriter(stream_data, fieldnames = field_names)          # Set field names in the CSV file
+            writer.writeheader()                                                    # Create header
+            writer.writerow(row)                                                    # Write data to file
+    else:
+        with open(file_name, 'a') as stream_data:
+            data_tuple = (data[0][0],data[0][1],data[0][2], data[1])
+            writer = csv.writer(stream_data)
+            writer.writerow(data_tuple)
+
+def csv_to_list(file_name):
+    with open(file_name, "rt") as infile:
+        reader = csv.reader(infile)
+        next(reader, None)  # skip the headers
+        data_list = []
+        for row in reader:
+            # process each row
+            data_list.append(row)
+        for i in range(len(data_list)):
+            if i < len(data_list):
+                del data_list[i]
+            i += 1
+        for row in range(len(data_list)):
+            for i in range(4):
+                data_list[row][i] = float(data_list[row][i])
+    return data_list
+
 if __name__ == '__main__':
     try:
         device = initialize()
@@ -77,6 +109,9 @@ if __name__ == '__main__':
             print("Compass is disabled and Acceleratometer Range is +-8g.")
         else:
             print("Compass is enabled or Acceleratometer Range is < 8g.")
+
+        file_name = "imu_data.csv"
+        opened = False
 
         acceleration_list = []
         velocity_list = []
@@ -101,20 +136,22 @@ if __name__ == '__main__':
             time_stamp = time.time()                                       # Time stamp
             curr_acceleration = [accel, time_stamp]                        # List to store accelerometer values + time stamp
             acceleration_list.append(curr_acceleration)                    # Add to total acceleration list
+
             # print(f"Acceleration values are: {acceleration_list}")
-            time.sleep(0.025)
-            # Make a copy of velocity so it doesn't get updated
-            curr_velocity = copy.deepcopy(velocity)
+            
             # Calculate velocity using acceleration
             for i in range(3):
                 if len(acceleration_list) > 1 and index > 0:                # Wait until we've done one iteration
-                    if abs(acceleration_list[index][0][i]) < 0.5:
+                    if abs(acceleration_list[index][0][i]) < 0.3:           # Threshold check to remove minute errors
                         acceleration_list[index][0][i] = 0.0
                     # Previous Velocity + (Current Acceleration + Previous Acceleration / 2 ) * (Current Time - Previous Time) 
-                    curr_velocity[0][i] = velocity_list[index-1][0][i] + ((acceleration_list[index][0][i] + acceleration_list[index-1][0][i])/2)*(acceleration_list[index][1] - acceleration_list[index-1][1])
-                    curr_velocity[1] = copy.deepcopy(acceleration_list[index][1])
-            
-            velocity_list.append(curr_velocity)
+                    velocity[0][i] = velocity_list[index-1][i] + ((acceleration_list[index][0][i] + acceleration_list[index-1][0][i])/2)*(acceleration_list[index][1] - acceleration_list[index-1][1])
+                    
+            velocity[1] = acceleration_list[index][1]
+
+            write_csv_data(curr_acceleration, opened, file_name, 'Acceleration')
+            velocity_list = csv_to_list("imu_data.csv")
+            opened = True
 
 
             # Correct with Rotation Matrix
@@ -124,31 +161,32 @@ if __name__ == '__main__':
             # corrected_velocity = numpy.matmul(rotation_matrix, velocity_matrix)
             # print(f"Corrected velocity is: {corrected_velocity}")
 
-            # TODO: Correct with Altimeter Values
+            # # TODO: Correct with Altimeter Values
 
-            # Make a copy of position so it doesn't get updated
-            curr_position = copy.deepcopy(position)
-            # Calculate position using velocity
-            for i in range(3):
-                if len(velocity_list) > 1 and index > 0:                    # Wait until we've done one iteration
-                    if abs(velocity_list[index][0][i]) < 0.5:               # Threshold check to remove minute errors
-                        velocity_list[index][0][i] = 0.0
-                    # Previous Position + (Current Velocity + Previous Velocity / 2 ) * (Current Time - Previous Time) 
-                    curr_position[0][i] = position_list[index-1][0][i] + ((velocity_list[index][0][i] + velocity_list[index-1][0][i])/2)*(velocity_list[index][1] - velocity_list[index-1][1])
-                    curr_position[1] = copy.deepcopy(velocity_list[index][1])
+            # # Calculate position using velocity
+            # for i in range(3):
+            #     if len(velocity_list) > 1 and index > 0:                    # Wait until we've done one iteration
+            #         if abs(velocity_list[index][i]) < 0.3:               # Threshold check to remove minute errors
+            #             velocity_list[index][i] = 0.0
+            #         # Previous Position + (Current Velocity + Previous Velocity / 2 ) * (Current Time - Previous Time) 
+            #         position[0][i] = position_list[index-1][0][i] + ((velocity_list[index][i] + velocity_list[index-1][i])/2)*(velocity_list[index][3] - velocity_list[index-1][3])
 
-            position_list.append(curr_position)
+            # position_list.append(position)
+            # print(f"Position is: {position}")
 
-            print(f"Position is: {curr_position}")
             index += 1
 
+        print(velocity_list)
+        
         # TODO: Create and display plot of acceleration values
-        accel_x_values = []
-        length = []
-        for i in range(len(acceleration_list)):
-            accel_x_values.append(acceleration_list[i][0][0])
-            length.append(i)
-        plot(numpy.array(length), numpy.array(accel_x_values))
+        # accel_x_values = []
+        # length = []
+        # for i in range(len(acceleration_list)):
+        #     accel_x_values.append(acceleration_list[i][0][0])
+        #     length.append(i)
+        # plot(numpy.array(length), numpy.array(accel_x_values))
+
+        # device.close()
         
     except KeyboardInterrupt:
         sys.exit()
