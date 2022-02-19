@@ -39,8 +39,9 @@ def initialize():
 def calibrate(device):
     if device is not None:
         device.setCompassEnabled(enabled = False)   # Disable magnometer (compass)
-        device.setCalibrationMode(mode = 1)         # Set calibration mode to Scale/Bias mode
-        device.beginGyroscopeAutoCalibration()      # Begin auto calibration of gyroscope
+        # device.setCalibrationMode(mode = 1)         # Set calibration mode to Scale/Bias mode
+        device.tareWithCurrentOrientation()         # Tare with current orientation
+        # device.beginGyroscopeAutoCalibration()      # Begin auto calibration of gyroscope
         device.setFilterMode(mode = 1)              # Set filter mode to Kalman
         device.setAccelerometerRange(2)             # Set acceleration range to +-2g
         return device
@@ -110,14 +111,16 @@ if __name__ == '__main__':
         else:
             print("Compass is enabled or Acceleratometer Range is < 8g.")
 
-        file_name = "imu_data.csv"
+        accel_file = "imu_accel_data.csv"
+        velocity_file = "imu_velocity_data.csv"
+        position_file = "imu_position_data.csv"
         opened = False
 
         acceleration_list = []
         velocity_list = []
         position_list = []
 
-        acceleration = []
+        acceleration = [[0,0,0], 0]
         velocity = [[0,0,0], 0]
         position = [[0,0,0], 0]
 
@@ -127,12 +130,13 @@ if __name__ == '__main__':
         index = 0
 
         while index < 10000:
-
+            if index > 0:
             # Get current acceleration and append to list
-            accel = list(device.getCorrectedAccelerometerVector())         # Accelerometer Values 
-            accel[1] -= 1                                                  # Subtract 1g from Y-value
-            accel = conversion(device, accel)                              # Convert from G's to Meters/Second²
-
+                accel = list(device.getCorrectedAccelerometerVector())         # Accelerometer Values 
+                accel[1] -= 1                                                  # Subtract 1g from Y-value
+                accel = conversion(device, accel)                              # Convert from G's to Meters/Second²
+            elif index == 0:
+                accel = [0,0,0]
             time_stamp = time.time()                                       # Time stamp
             curr_acceleration = [accel, time_stamp]                        # List to store accelerometer values + time stamp
             acceleration_list.append(curr_acceleration)                    # Add to total acceleration list
@@ -140,20 +144,21 @@ if __name__ == '__main__':
             # print(f"Acceleration values are: {acceleration_list}")
             
             # Calculate velocity using acceleration
-            for i in range(3):
-                if len(acceleration_list) > 1 and index > 0:                # Wait until we've done one iteration
-                    if abs(acceleration_list[index][0][i]) < 0.3:           # Threshold check to remove minute errors
+            if len(acceleration_list) > 1 and index > 0:                    # Wait until we've done one iteration
+                for i in range(3):
+                    if abs(acceleration_list[index][0][i]) < 3.2174:           # Threshold check to remove minute errors
                         acceleration_list[index][0][i] = 0.0
+                    elif abs(acceleration_list[index][0][i]) > 160.87:
+                        acceleration_list[index][0][i] = 160.87
                     # Previous Velocity + (Current Acceleration + Previous Acceleration / 2 ) * (Current Time - Previous Time) 
                     velocity[0][i] = velocity_list[index-1][i] + ((acceleration_list[index][0][i] + acceleration_list[index-1][0][i])/2)*(acceleration_list[index][1] - acceleration_list[index-1][1])
-                    
             velocity[1] = acceleration_list[index][1]
 
-            write_csv_data(curr_acceleration, opened, file_name, 'Acceleration')
-            velocity_list = csv_to_list("imu_data.csv")
-            opened = True
-
-
+            # write_csv_data(curr_acceleration, opened, accel_file, 'Acceleration')
+            write_csv_data(velocity, opened, velocity_file, 'Velocity')
+            velocity_list = csv_to_list(velocity_file)
+            # opened = True
+            
             # Correct with Rotation Matrix
             # rotation_array = numpy.array(get_rotation_matrix(device))          # Get rotation matrix as quanterions
             # rotation_matrix = rotation_array.reshape((3,3))
@@ -163,21 +168,27 @@ if __name__ == '__main__':
 
             # # TODO: Correct with Altimeter Values
 
-            # # Calculate position using velocity
-            # for i in range(3):
-            #     if len(velocity_list) > 1 and index > 0:                    # Wait until we've done one iteration
-            #         if abs(velocity_list[index][i]) < 0.3:               # Threshold check to remove minute errors
-            #             velocity_list[index][i] = 0.0
-            #         # Previous Position + (Current Velocity + Previous Velocity / 2 ) * (Current Time - Previous Time) 
-            #         position[0][i] = position_list[index-1][0][i] + ((velocity_list[index][i] + velocity_list[index-1][i])/2)*(velocity_list[index][3] - velocity_list[index-1][3])
-
+            # Calculate position using velocity
+            if index > 0:                    # Wait until we've done one iteration
+                for i in range(3):
+                    if abs(velocity_list[index][i]) < 2.5:               # Threshold check to remove minute errors
+                        velocity_list[index][i] = 0.0
+                    # Previous Position + (Current Velocity + Previous Velocity / 2 ) * (Current Time - Previous Time) 
+                    position[0][i] = position_list[index-1][i] + ((velocity_list[index][i] + velocity_list[index-1][i])/2)*(velocity_list[index][3] - velocity_list[index-1][3])
+            position[1] = velocity_list[index][3]
+            
             # position_list.append(position)
             # print(f"Position is: {position}")
+            
+            write_csv_data(position, opened, position_file, 'Position')
 
+            position_list = csv_to_list(position_file)
+
+            opened = True
             index += 1
 
         print(velocity_list)
-        
+        print(position_list)
         # TODO: Create and display plot of acceleration values
         # accel_x_values = []
         # length = []
