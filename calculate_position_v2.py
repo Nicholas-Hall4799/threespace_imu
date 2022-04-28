@@ -224,12 +224,12 @@ if __name__ == '__main__':
         position_list.append(position)
 
         index = 0
-        while index < 1000:
+        while index < 10000:
 
             if index > 0:
             # Get current acceleration and append to list
-                accel = list(device.getCorrectedAccelerometerVector())                  # Accelerometer Values 
-                accel[1] -= 1                                                           # Subtract 1g from Y-value
+                accel = list(device.getCorrectedLinearAccelerationInGlobalSpace())                  # Accelerometer Values 
+                # accel[1] -= 1                                                           # Subtract 1g from Y-value
                 accel = conversion(device, accel)                                       # Convert from G's to Meters/Second²
             elif index == 0:
                 accel = [0,0,0]
@@ -242,7 +242,7 @@ if __name__ == '__main__':
             rotation_matrix = rotation_array.reshape((3,3))
             accel_matrix = numpy.array(curr_acceleration[0])
             corrected_accel = numpy.matmul(rotation_matrix, accel_matrix)
-            print(f"Corrected acceleration is: {corrected_accel}")
+            # print(f"Corrected acceleration is: {corrected_accel}")
 
             corrected_accel = [corrected_accel, time_stamp]
             acceleration_list.append(corrected_accel)                                   # Add to total acceleration list
