@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import csv
 import time
+import string
 import copy
 
 def initialize():
@@ -32,10 +33,13 @@ def initialize():
         Returns:
             sensor_port: string
         ''' 
-        # devices = ts_api.getComPorts(filter=ts_api.TSS_FIND_LX)       # Get all LX devices
-        devices = [ComInfo(com_port='COM3', friendly_name='USB Serial Device (COM3)', dev_type='LX')]
-        sensor_port = devices[0]                                        # Take first (and presumably only) device.
+        # sensor_port = '/dev/ttyACM0'                                                                          # Raspberry Pi Port
+
+        devices = [ComInfo(com_port='COM3', friendly_name='USB Serial Device (COM3)', dev_type='LX')]           # Windows Port
+        sensor_port = devices[0]                                                                                # Take first (and presumably only) device.
+
         return sensor_port
+
     print("Connecting to the 3-Space Sensor...")
     
     try:
@@ -142,7 +146,7 @@ def plot(x, y):
     plt.title("Acceleration in X Direction")
     plt.xlabel("x axis")
     plt.ylabel("y axis")
-    plt.ylim(-16, 16)
+    plt.ylim(-50, 50)
     plt.show()
     return None
 
@@ -163,9 +167,9 @@ def write_csv_data(data, opened, file_name, data_type):
     if not opened:
         with open(file_name, 'w') as stream_data:
             field_names = [data_type + 'X',data_type + 'Y',data_type + 'Z', 'Time']
-            writer = csv.DictWriter(stream_data, fieldnames = field_names)              # Set field names in the CSV file
-            writer.writeheader()                                                        # Create header
-            writer.writerow(row)                                                        # Write data to file
+            writer = csv.DictWriter(stream_data, fieldnames = field_names)          # Set field names in the CSV file
+            writer.writeheader()                                                    # Create header
+            writer.writerow(row)                                                    # Write data to file
     else:
         with open(file_name, 'a') as stream_data:
             data_tuple = (data[0][0],data[0][1],data[0][2], data[1])
@@ -189,7 +193,7 @@ def csv_to_list(file_name):
         for row in reader:
             # process each row
             data_list.append(row)
-        for i in range(len(data_list)):
+        for i in range(len(data_list)):                                 # Only for Windows Usage -- Comment out on Raspberry Pi
             if i < len(data_list):
                 del data_list[i]
             i += 1
@@ -208,7 +212,10 @@ if __name__ == '__main__':
         else:
             print("Compass is enabled or Accelerometer Range is < 8g.")
 
-        accel_file = "imu_accel_data.csv"
+        # accel_file = "/home/pi//threespace_imu/threespace_imu-main/imu_accel_data.csv"                    # Raspberry Pi File Paths
+        # velocity_file = "/home/pi//threespace_imu/threespace_imu-main/imu_velocity_data.csv"
+        # position_file = "/home/pi//threespace_imu/threespace_imu-main/imu_position_data.csv"
+        accel_file = "imu_accel_data.csv"                                                                    # Windows File Paths
         velocity_file = "imu_velocity_data.csv"
         position_file = "imu_position_data.csv"
         opened = False
@@ -224,7 +231,7 @@ if __name__ == '__main__':
         position_list.append(position)
 
         index = 0
-        while index < 10000:
+        while index < 1000:
 
             if index > 0:
             # Get current acceleration and append to list
@@ -297,96 +304,38 @@ if __name__ == '__main__':
             index += 1
 
         # TODO: Create and display plot of acceleration values
-        # accel_x_values = []
-        # length = []
-        # for i in range(len(acceleration_list)):
-        #     accel_x_values.append(acceleration_list[i][0][0])
-        #     length.append(i)
-        # plot(numpy.array(length), numpy.array(accel_x_values))
+        values = []
+        for dimension in range(3):
+            for i in range(len(acceleration_list)):
+                values.append(acceleration_list[i][0][dimension])
+            plt.plot(numpy.arange(len(values)), numpy.array(values), linestyle='dashed')
+            values.clear()
+        
+        plt.title("Acceleration")
+        plt.xlabel("Number of Data Points")
+        plt.ylabel("Acceleration in Ft/Sec")
+
+        plt.show()
 
         device.close()
         
+        horizontal_position = list(string.ascii_uppercase[0:20])
+        threshold = -2500
         grid_square = ""
-        if position_list[-1][0] > -2500 and position_list[-1][0] <= -2250:
-            grid_square += "A"
-        elif position_list[-1][0] > -2250 and position_list[-1][0] <= -2000:
-            grid_square += "B"
-        elif position_list[-1][0] > -2000 and position_list[-1][0] <= -1750:
-            grid_square += "C"
-        elif position_list[-1][0] > -1750 and position_list[-1][0] <= -1500:
-            grid_square += "D"
-        elif position_list[-1][0] > -1500 and position_list[-1][0] <= -1250:
-            grid_square += "E"
-        elif position_list[-1][0] > -1250 and position_list[-1][0] <= -1000:
-            grid_square += "F"        
-        elif position_list[-1][0] > -1000 and position_list[-1][0] <= -750:
-            grid_square += "G"        
-        elif position_list[-1][0] > -750 and position_list[-1][0] <= -500:
-            grid_square += "H"        
-        elif position_list[-1][0] > -500 and position_list[-1][0] <= -250:
-            grid_square += "I"        
-        elif position_list[-1][0] > -250 and position_list[-1][0] <= 0:
-            grid_square += "J"        
-        elif position_list[-1][0] > 0 and position_list[-1][0] <= 250:
-            grid_square += "K"        
-        elif position_list[-1][0] > 250 and position_list[-1][0] <= 500:
-            grid_square += "L"
-        elif position_list[-1][0] > 500 and position_list[-1][0] <= 750:
-            grid_square += "M"        
-        elif position_list[-1][0] > 750 and position_list[-1][0] <= 1000:
-            grid_square += "N" 
-        elif position_list[-1][0] > 1000 and position_list[-1][0] <= 1250:
-            grid_square += "O" 
-        elif position_list[-1][0] > 1250 and position_list[-1][0] <= 1500:
-            grid_square += "P" 
-        elif position_list[-1][0] > 1500 and position_list[-1][0] <= 1750:
-            grid_square += "Q" 
-        elif position_list[-1][0] > 1750 and position_list[-1][0] <= 2000:
-            grid_square += "R" 
-        elif position_list[-1][0] > 2000 and position_list[-1][0] <= 2250:
-            grid_square += "S" 
-        elif position_list[-1][0] > 2250 and position_list[-1][0] <= 2500:
-            grid_square += "T"
-        if position_list[-1][2] > -2500 and position_list[-1][2] <= -2250:
-            grid_square += "20"
-        elif position_list[-1][2] > -2250 and position_list[-1][2] <= -2000:
-            grid_square += "19"
-        elif position_list[-1][2] > -2000 and position_list[-1][2] <= -1750:
-            grid_square += "18"
-        elif position_list[-1][2] > -1750 and position_list[-1][2] <= -1500:
-            grid_square += "17"
-        elif position_list[-1][2] > -1500 and position_list[-1][2] <= -1250:
-            grid_square += "16"
-        elif position_list[-1][2] > -1250 and position_list[-1][2] <= -1000:
-            grid_square += "15"        
-        elif position_list[-1][2] > -1000 and position_list[-1][2] <= -750:
-            grid_square += "14"        
-        elif position_list[-1][2] > -750 and position_list[-1][2] <= -500:
-            grid_square += "13"        
-        elif position_list[-1][2] > -500 and position_list[-1][2] <= -250:
-            grid_square += "12"        
-        elif position_list[-1][2] > -250 and position_list[-1][2] <= 0:
-            grid_square += "11"        
-        elif position_list[-1][2] > 0 and position_list[-1][2] <= 250:
-            grid_square += "10"        
-        elif position_list[-1][2] > 250 and position_list[-1][2] <= 500:
-            grid_square += "9"
-        elif position_list[-1][2] > 500 and position_list[-1][2] <= 750:
-            grid_square += "8"        
-        elif position_list[-1][2] > 750 and position_list[-1][2] <= 1000:
-            grid_square += "7" 
-        elif position_list[-1][2] > 1000 and position_list[-1][2] <= 1250:
-            grid_square += "6" 
-        elif position_list[-1][2] > 1250 and position_list[-1][2] <= 1500:
-            grid_square += "5" 
-        elif position_list[-1][2] > 1500 and position_list[-1][2] <= 1750:
-            grid_square += "4" 
-        elif position_list[-1][2] > 1750 and position_list[-1][2] <= 2000:
-            grid_square += "3" 
-        elif position_list[-1][2] > 2000 and position_list[-1][2] <= 2250:
-            grid_square += "2" 
-        elif position_list[-1][2] > 2250 and position_list[-1][2] <= 2500:
-            grid_square += "1"
+        for letter in range(len(horizontal_position)):
+            if position_list[-1][0] > threshold and position_list[-1][0] <= (threshold + 250):
+                grid_square += horizontal_position[letter]
+            threshold += 250
+
+        vertical_position = list(range(1, 21))
+        threshold = 2500
+        for number in range(len(vertical_position)):
+            if position_list[-1][2] > (threshold - 250) and position_list[-1][2] <= threshold:
+                grid_square += str(vertical_position[number])
+            threshold -= 250
+        
         print(grid_square)
+        
     except KeyboardInterrupt:
         sys.exit()
+    
